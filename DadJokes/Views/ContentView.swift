@@ -19,10 +19,10 @@ struct ContentView: View {
                                        status: 0)
     
     // This will keep track of our list of favourite jokes
-    @State var favourites: [DadJoke] = []   // empty list to start
+    @State var favorites: [DadJoke] = []   // empty list to start
     
     // This will let us know whether the current exists as a favourite
-    @State var currentJokeAddedToFavourites: Bool = false
+    @State var currentJokeAddedToFavorites: Bool = false
     
     // MARK: Computed properties
     var body: some View {
@@ -42,17 +42,17 @@ struct ContentView: View {
             Image(systemName: "heart.circle")
                 .font(.largeTitle)
                 //                      CONDITION                        true   false
-                .foregroundColor(currentJokeAddedToFavourites == true ? .red : .secondary)
+                .foregroundColor(currentJokeAddedToFavorites == true ? .red : .secondary)
                 .onTapGesture {
                     
                     // Only add to the list if it is not already there
-                    if currentJokeAddedToFavourites == false {
+                    if currentJokeAddedToFavorites == false {
                         
                         // Adds the current joke to the list
-                        favourites.append(currentJoke)
+                        favorites.append(currentJoke)
                         
                         // Record that we have marked this as a favourite
-                        currentJokeAddedToFavourites = true
+                        currentJokeAddedToFavorites = true
 
                     }
                     
@@ -75,16 +75,16 @@ struct ContentView: View {
                 .buttonStyle(.bordered)
             
             HStack {
-                Text("Favourites")
+                Text("favorites")
                     .bold()
                 
                 Spacer()
             }
             
-            // Iterate over the list of favourites
+            // Iterate over the list of favorites
             // As we iterate, each individual favourite is
             // accessible via "currentFavourite"
-            List(favourites, id: \.self) { currentFavourite in
+            List(favorites, id: \.self) { currentFavourite in
                 Text(currentFavourite.joke)
             }
             
@@ -106,16 +106,24 @@ struct ContentView: View {
             await loadNewJoke()
             
             print("I tried to load a new joke")
+            
+            // Load favorites from the file saved on the device
+            loadFavorites()
         }
         // React to changes of state for the app. (foreground, background, and inactive state.)
-        .onChange(of: ScenePhase) { newPhase in
+        .onChange(of: scenePhase) { newPhase in
             if newPhase == .inactive {
                 print("Inactive")
             } else if newPhase == .active {
                 print("Active")
             } else if newPhase == .background {
                 print("Background")
+                
+                //Permanently save the list of favorites.
+                persistFavorites()
             }
+            
+            
         }
         .navigationTitle("icanhazdadjoke?")
         .padding()
@@ -159,7 +167,7 @@ struct ContentView: View {
             
             // Reset the flag that tracks whether the current joke
             // is a favourite
-            currentJokeAddedToFavourites = false
+            currentJokeAddedToFavorites = false
             
         } catch {
             print("Could not retrieve or decode the JSON from endpoint.")
@@ -168,6 +176,67 @@ struct ContentView: View {
             print(error)
         }
 
+    }
+    
+    //Save the data permanently
+    
+    func persistFavorites() {
+        
+        // Get a location under which to save the data
+        let filename = getDocumentsDirectory().appendingPathComponent(savedFavoritesLabel)
+        print(filename)
+        
+        do {
+            // Create a JSON Encoder object
+            let encoder = JSONEncoder()
+            
+            // Configure the encoder to "pretty print" the JSON
+            encoder.outputFormatting = .prettyPrinted
+            
+            // Encode the list of favorites we've collected
+            let data = try encoder.encode(favorites)
+            
+            // Write the JSON to a file in the filename earlier
+            try data.write(to: filename, options: [.atomicWrite, .completeFileProtection])
+            print("Saved data to the Documents directory successfully.")
+            print("=========")
+            print(String(data: data, encoding: .utf8)!)
+            
+        } catch {
+            print("Unable to write list of favorites to the Documents directory")
+            print("=========")
+            print(error.localizedDescription)
+        }
+    }
+    
+    // loads the datat that was saved to the device
+    // Loading our favorites:
+    func loadFavorites() {
+        
+        // Get a location under which to save the data
+        let filename = getDocumentsDirectory().appendingPathComponent(savedFavoritesLabel)
+        print(filename)
+        
+        //Attempt to load the data
+        do {
+            // Load raw data
+            let data = try Data(contentsOf: filename)
+            
+            // Write the JSON to a file in the filename earlier
+            print("Loaded data from the Documents directory successfully.")
+            print("=========")
+            print(String(data: data, encoding: .utf8)!)
+            
+            // Decode the JSON into Swift native data structures
+            // NOTE: we used [DadJoke] since we are loading into a list (array)
+            favorites = try JSONDecoder().decode([DadJoke].self, from: data)
+            
+        } catch {
+            // What went wrong
+            print("Could not load the data from the stores JSON file.")
+            print("=========")
+            print(error.localizedDescription)
+        }
     }
     
 }
